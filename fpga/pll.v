@@ -28,7 +28,7 @@ EHXPLLL #(
         .CLKOP_CPHASE(2),
         .CLKOP_FPHASE(0),
         .CLKOS_ENABLE("ENABLED"),
-        .CLKOS_DIV(12),
+        .CLKOS_DIV(10),
         .CLKOS_CPHASE(2),
         .CLKOS_FPHASE(0),
         .FEEDBK_PATH("CLKOP"),

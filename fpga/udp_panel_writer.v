@@ -42,7 +42,7 @@ module udp_panel_writer
             ctrl_addr <= 16'b0;
             ctrl_wdat <= 16'b0;
             ctrl_en   <= 1'b0;
-	          data      <= 32'b0;
+            data      <= 32'b0;
             byte_count <= 2'b0;
         end else begin
             ctrl_en <= 6'b0;
@@ -52,8 +52,8 @@ module udp_panel_writer
                     if (udp_source_valid && (udp_source_dst_port[15:8] == PORT_MSB)) begin
                         ctrl_en_reg <= udp_source_dst_port[5:0];
                         if (!udp_source_last) begin
-			                     data = {data[23:0],udp_source_data[7:0]};
-			                     byte_count  <= 3'b1;
+                           data = {data[23:0],udp_source_data[7:0]};
+                           byte_count  <= 3'b1;
                            udp_state   <= STATE_READ_DATA;
                         end
                     end
@@ -61,14 +61,14 @@ module udp_panel_writer
                 STATE_READ_DATA : begin
                     if (udp_source_valid) begin
                         byte_count <= byte_count + 3'b1;
-			                  data = {data[23:0],udp_source_data[7:0]};
-			                  if (byte_count == 3'b11) begin
-	                        ctrl_en          <= ctrl_en_reg;
-	                        ctrl_addr        <= data[31:18];
-	                        ctrl_wdat[23:16] <= data[17:12];
-	                        ctrl_wdat[15:8]  <= data[11:6];
-	                        ctrl_wdat[7:0]   <= data[5:0];
-			                  end
+                        data = {data[23:0],udp_source_data[7:0]};
+                        if (byte_count == 3'b11) begin
+                          ctrl_en          <= ctrl_en_reg;
+                          ctrl_addr        <= data[31:18];
+                          ctrl_wdat[23:16] <= data[17:12];
+                          ctrl_wdat[15:8]  <= data[11:6];
+                          ctrl_wdat[7:0]   <= data[5:0];
+                        end
 
                         if (udp_source_last) begin
                             udp_state <= STATE_WAIT_PACKET;

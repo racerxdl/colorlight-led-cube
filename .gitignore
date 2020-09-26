@@ -1,0 +1,5 @@
+fpga/syn/top.json
+fpga/syn/top.svf
+fpga/syn/top-post-route.json
+fpga/syn/top.bit
+fpga/syn/top.config
