@@ -12,6 +12,7 @@
 
 `default_nettype none
 module ledpanel (
+  input wire reset,
   input wire ctrl_clk,
 
 	input wire ctrl_en,
@@ -61,57 +62,165 @@ module ledpanel (
 	reg [2:0]                       cnt_z = 0;
 	reg state = 0;
 
+
+  // State machine.
+  localparam
+      S_START   =  0,
+      S_R1      =  1,
+      S_R1C     =  2,
+      S_R1E     =  3,
+      S_R2      =  4,
+      S_R2C     =  5,
+      S_R2E     =  6,
+      S_R3      =  7,
+      S_R3C     =  8,
+      S_R3E     =  9,
+      S_WORK    = 10;
+  // FM6126 Init Values
+
+  localparam MAX_LED   = CHAINED * 64;
+  localparam FM_R1     = 16'b0111100011001110; // 2'b1111111111001110; // 16'h7FFF; 2'b0111001111111111
+  localparam FM_R2     = 16'b1111100001100010; // 2'b1110000001100010; // 16'h0040; 2'b0100011000000111
+  localparam FM_R3     = 16'b0001111100000000; // 2'b0101111100000000;              2'b0000000011111010
+
+  localparam REG_12    = MAX_LED-12;
+  localparam REG_13    = MAX_LED-13;
+  localparam REG_11    = MAX_LED-11;
+
+  reg [4:0] cstate = S_START;
+
+  wire WorkMode = cstate == S_WORK;
+
 	reg [5+SIZE_BITS:0] addr_x;
 	reg [5:0]           addr_y;
 	reg [2:0]           addr_z;
 	reg [2:0]           data_rgb;
 	reg [2:0]           data_rgb_q;
 	reg [5+COLOR_DEPTH+SIZE_BITS:0] max_cnt_x;
+  reg [15:0]                      init_reg;
 
 	always @(posedge display_clock) begin
-		case (cnt_z)
-      0: max_cnt_x = 64*CHAINED+8;
-      1: max_cnt_x = 128*CHAINED;
-      2: max_cnt_x = 256*CHAINED;
-      3: max_cnt_x = 512*CHAINED;
-      4: max_cnt_x = 1024*CHAINED;
-      5: max_cnt_x = 2048*CHAINED;
-      6: max_cnt_x = 4096*CHAINED;
-      7: max_cnt_x = 8192*CHAINED;
-		endcase
+    if (WorkMode) begin
+  		case (cnt_z)
+        0: max_cnt_x = 64*CHAINED+8;
+        1: max_cnt_x = 128*CHAINED;
+        2: max_cnt_x = 256*CHAINED;
+        3: max_cnt_x = 512*CHAINED;
+        4: max_cnt_x = 1024*CHAINED;
+        5: max_cnt_x = 2048*CHAINED;
+        6: max_cnt_x = 4096*CHAINED;
+        7: max_cnt_x = 8192*CHAINED;
+  		endcase
+    end
 	end
 
 	always @(posedge display_clock) begin
-		state <= !state;
-		if (!state) begin
-			if (cnt_x > max_cnt_x) begin
-				cnt_x <= 0;
-				cnt_z <= cnt_z + 1;
-				if (cnt_z == COLOR_DEPTH-1) begin
-					cnt_y <= cnt_y + 1;
-          cnt_z <= 0;
+    if (reset) begin
+      cnt_x  <= 0;
+      state  <= 0;
+      cnt_z  <= 0;
+      cnt_y  <= 0;
+    end
+    else
+    begin
+      case (cstate)
+        S_START: cnt_x   <= 0;
+        S_R1:    cnt_x   <= cnt_x + 1;
+        S_R1E:   cnt_x   <= 0;
+        S_R2:    cnt_x   <= cnt_x + 1;
+        S_R2E:   cnt_x   <= 0;
+        S_R3:    cnt_x   <= cnt_x + 1;
+        S_R3E:   cnt_x   <= 0;
+        S_WORK:
+        begin
+          // Only change states when WORK State
+          state <= !state;
+          if (!state) begin
+            if (cnt_x > max_cnt_x) begin
+              cnt_x <= 0;
+              cnt_z <= cnt_z + 1;
+              if (cnt_z == COLOR_DEPTH-1) begin
+                cnt_y <= cnt_y + 1;
+                cnt_z <= 0;
+              end
+            end else begin
+              cnt_x <= cnt_x + 1;
+            end
+          end
         end
-			end else begin
-				cnt_x <= cnt_x + 1;
-			end
-		end
+      endcase
+    end
 	end
 
 	always @(posedge display_clock) begin
-		panel_oe <= 64*CHAINED-8 < cnt_x && cnt_x < 64*CHAINED+8;
-		if (state) begin
-			panel_clk <= 1 < cnt_x && cnt_x < 64*CHAINED+2;
-			panel_stb <= cnt_x == 64*CHAINED+2;
-		end else begin
-      panel_clk <= 0;
+    if (reset) begin
       panel_stb <= 0;
-		end
+      panel_oe  <= 0;
+      panel_clk <= 0;
+    end
+    else
+    begin
+      case (cstate)
+        S_START:
+          begin
+            panel_stb <= 0;
+            panel_oe  <= 1;
+            panel_clk <= 0;
+          end
+        S_R1:
+          begin
+            panel_stb <= cnt_x > REG_12;
+            panel_clk <= 1;
+          end
+        S_R1C: panel_clk <= 0;
+        S_R1E:
+          begin
+            panel_stb <= 0;
+            panel_clk <= 0;
+          end
+        S_R2:
+          begin
+            panel_stb <= cnt_x > REG_13;
+            panel_clk <= 1;
+          end
+        S_R2C: panel_clk <= 0;
+        S_R2E:
+          begin
+            panel_stb  <= 0;
+            panel_clk  <= 0;
+          end
+        S_R3:
+          begin
+            panel_stb <= cnt_x > REG_11;
+            panel_clk <= 1;
+          end
+        S_R3C: panel_clk <= 0;
+        S_R3E:
+          begin
+            panel_stb  <= 0;
+            panel_clk  <= 0;
+          end
+        S_WORK:
+          begin
+        		panel_oe <= 64*CHAINED-8 < cnt_x && cnt_x < 64*CHAINED+8;
+        		if (state) begin
+        			panel_clk <= 1 < cnt_x && cnt_x < 64*CHAINED+2;
+        			panel_stb <= cnt_x == 64*CHAINED+2;
+        		end else begin
+              panel_clk <= 0;
+              panel_stb <= 0;
+        		end
+          end
+      endcase
+    end
 	end
 
 	always @(posedge display_clock) begin
-		addr_x <= cnt_x[5+SIZE_BITS:0];
-		addr_y <= cnt_y + 32*(!state);
-		addr_z <= cnt_z;
+    if (WorkMode) begin
+  		addr_x <= cnt_x[5+SIZE_BITS:0];
+  		addr_y <= cnt_y + 32*(!state);
+  		addr_z <= cnt_z;
+    end
 	end
 
 	always @(posedge display_clock) begin
@@ -121,20 +230,124 @@ module ledpanel (
 	end
 
   always @(posedge display_clock) begin
-		data_rgb_q <= data_rgb;
-		if (!state) begin
-			if (0 < cnt_x && cnt_x < 64*CHAINED+1) begin
-				{panel_r1, panel_r0} <= {data_rgb[2], data_rgb_q[2]};
-				{panel_g1, panel_g0} <= {data_rgb[1], data_rgb_q[1]};
-				{panel_b1, panel_b0} <= {data_rgb[0], data_rgb_q[0]};
-            end else begin
-				{panel_r1, panel_r0} <= 0;
-				{panel_g1, panel_g0} <= 0;
-				{panel_b1, panel_b0} <= 0;
-			end
-		end
-		else if (cnt_x == 64*CHAINED)  begin
-			{panel_e, panel_d, panel_c, panel_b, panel_a} <= cnt_y;
-		end
+    if (reset) begin
+      cstate <= S_START;
+      {panel_r1, panel_r0} <= 0;
+      {panel_g1, panel_g0} <= 0;
+      {panel_b1, panel_b0} <= 0;
+      {panel_e, panel_d, panel_c, panel_b, panel_a} <= 0;
+    end
+    else
+    begin
+      case (cstate)
+        S_START:          // Exit reset; start shifting column data.
+          begin
+            // Setup FM6126 init
+            init_reg  <= FM_R1;
+            cstate    <= S_R1;
+          end
+        // Setting FM6126 Registers
+        S_R1:
+          begin
+              if (init_reg[15]) begin
+                {panel_r1, panel_r0} <= 3;
+                {panel_g1, panel_g0} <= 3;
+                {panel_b1, panel_b0} <= 3;
+              end
+              else begin
+                {panel_r1, panel_r0} <= {0, 0};
+                {panel_g1, panel_g0} <= {0, 0};
+                {panel_b1, panel_b0} <= {0, 0};
+              end
+
+              init_reg  <= {init_reg[14:0], init_reg[15]};
+
+              if (cnt_x == MAX_LED)
+                cstate <= S_R1E;
+              else
+                cstate <= S_R1C;
+          end
+        S_R1C:
+          cstate <= S_R1;
+        S_R1E:
+          begin
+            init_reg  <= FM_R2;
+            cstate    <= S_R2;
+          end
+
+        S_R2:
+          begin
+              if (init_reg[15]) begin
+                {panel_r1, panel_r0} <= 3;
+                {panel_g1, panel_g0} <= 3;
+                {panel_b1, panel_b0} <= 3;
+              end
+              else begin
+                {panel_r1, panel_r0} <= {0, 0};
+                {panel_g1, panel_g0} <= {0, 0};
+                {panel_b1, panel_b0} <= {0, 0};
+              end
+              init_reg    <= {init_reg[14:0], init_reg[15]};
+
+              if (cnt_x == MAX_LED)
+                cstate <= S_R2E;
+              else
+                cstate <= S_R2C;
+          end
+        S_R2C:
+          cstate <= S_R2;
+        S_R2E:
+          begin
+            init_reg  <= FM_R3;
+            cstate    <= S_R3;
+            // cstate    <= S_WORK;
+          end
+
+        S_R3:
+          begin
+              if (init_reg[15]) begin
+                {panel_r1, panel_r0} <= 3;
+                {panel_g1, panel_g0} <= 3;
+                {panel_b1, panel_b0} <= 3;
+              end
+              else begin
+                {panel_r1, panel_r0} <= {0, 0};
+                {panel_g1, panel_g0} <= {0, 0};
+                {panel_b1, panel_b0} <= {0, 0};
+              end
+              init_reg    <= {init_reg[14:0], init_reg[15]};
+
+              if (cnt_x == MAX_LED)
+                cstate <= S_R3E;
+              else
+                cstate <= S_R3C;
+          end
+        S_R3C:
+          cstate <= S_R3;
+        S_R3E:
+          begin
+            cstate     <= S_WORK;
+          end
+
+        S_WORK:
+          begin
+            data_rgb_q <= data_rgb;
+            if (!state) begin
+              if (0 < cnt_x && cnt_x < 64*CHAINED+1) begin
+                {panel_r1, panel_r0} <= {data_rgb[2], data_rgb_q[2]};
+                {panel_g1, panel_g0} <= {data_rgb[1], data_rgb_q[1]};
+                {panel_b1, panel_b0} <= {data_rgb[0], data_rgb_q[0]};
+              end else begin
+                {panel_r1, panel_r0} <= 0;
+                {panel_g1, panel_g0} <= 0;
+                {panel_b1, panel_b0} <= 0;
+              end
+            end
+            else if (cnt_x == 64*CHAINED) begin
+              {panel_e, panel_d, panel_c, panel_b, panel_a} <= cnt_y;
+            end
+          end
+      endcase
+    end
 	end
 endmodule
