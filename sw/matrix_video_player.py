@@ -10,13 +10,13 @@ Usage: python3.7 matrix_video_player.py
 UDP_IP = '192.168.178.50'
 UDP_PORT = 26177
 
-input_size = 1280    # input square size
-offset_x = 310      # left offset
-offset_y = 210      # top offset
+input_size = 1024    # input square size
+offset_x = 448      # left offset
+offset_y = 0      # top offset
 
-monitor = {'top': offset_y, 'left': offset_x, 'width': input_size, 'height': int(input_size/2)}
+monitor = {'top': offset_y, 'left': offset_x, 'width': input_size, 'height': input_size}
 
-num_rows = 64
+num_rows = 128
 num_cols = 128
 bin_size_w = int(monitor["width"] / num_cols)
 bin_size_h = int(monitor["height"] / num_rows)
@@ -42,8 +42,8 @@ while(1):
             fbuf[x] = socket.htonl((addr << 18)     | (((int(r))&0xFC) << 10)
                                                     | (((int(g))&0xFC) << 4)
                                                     | (((int(b))&0xFC) >> 2))
-
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT))
+        offset = int(y / 64)
+        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT + offset))
         totalBytes += len(fbuf.tobytes())
     delta = (time.time() - start) * 1000
     print("Took %f ms to send %d bytes" % (delta, totalBytes))
