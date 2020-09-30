@@ -10,10 +10,6 @@ Usage: python3.7 matrix_video_player_X6.py
 UDP_IP = '192.168.178.50'
 UDP_PORT_1 = 26177
 UDP_PORT_2 = 26178
-UDP_PORT_3 = 26180
-UDP_PORT_4 = 26184
-UDP_PORT_5 = 26192
-UDP_PORT_6 = 26208
 
 input_size = 1024    # input square size
 offset_x = 448      # left offset
@@ -21,7 +17,7 @@ offset_y = 28      # top offset
 color_scale = 8   # color divider
 
 num_rows = 64
-num_cols = num_rows
+num_cols = 128
 output_size = num_rows
 bin_size = int(input_size / output_size)
 fbuf = np.zeros((num_rows), dtype='i4')
@@ -47,11 +43,7 @@ while(1):
                                                     | (((int(g))&0xFC) << 4)
                                                     | (((int(b))&0xFC) >> 2))
 
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_1))
+        # s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_1))
         s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_2))
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_3))
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_4))
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_5))
-        s.sendto(fbuf.tobytes(), (UDP_IP, UDP_PORT_6))
 
 exit()

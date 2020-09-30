@@ -48,7 +48,7 @@ module top
     wire                 locked;
     wire                 clock;
     reg [3:0]            locked_reset = 4'b1111;
-    wire                 reset = locked_reset[3];
+    wire                 reset = locked_reset[3] | ~button;
     wire                 display_clock;
 
     pll pll_inst(.clkin(osc25m),.clock(clock),.panel_clock(display_clock),.locked(locked));
@@ -158,9 +158,10 @@ module top
     wire [5:0] CLK_int;
 
     generate
-        for (panel_index = 0; panel_index < 6; panel_index=panel_index+1) begin
+        for (panel_index = 0; panel_index < 2; panel_index=panel_index+1) begin
 
             ledpanel panel_inst (
+                .reset(reset),
                 .ctrl_clk(clock),
                 .ctrl_en(ctrl_en[panel_index]),
                 .ctrl_wr(ctrl_wr),       // Which color memory block to write

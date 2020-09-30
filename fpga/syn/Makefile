@@ -7,6 +7,21 @@ SOURCE :=../liteeth_core.v \
 
 YOSYS_SCRIPT:=syn.ys
 
+# Use Docker images
+DOCKER=docker
+#DOCKER=podman
+#
+PWD = $(shell pwd)
+DOCKERARGS = run --rm -v $(PWD):/src -w /src
+#
+GHDL      = $(DOCKER) $(DOCKERARGS) ghdl/synth:beta ghdl
+GHDLSYNTH = ghdl
+YOSYS     = $(DOCKER) $(DOCKERARGS) ghdl/synth:beta yosys
+NEXTPNR   = $(DOCKER) $(DOCKERARGS) ghdl/synth:nextpnr-ecp5 nextpnr-ecp5
+ECPPACK   = $(DOCKER) $(DOCKERARGS) ghdl/synth:trellis ecppack
+OPENOCD   = $(DOCKER) $(DOCKERARGS) --device /dev/bus/usb ghdl/synth:prog openocd
+
+
 all : top.svf
 
 ../pll.v :
@@ -19,10 +34,12 @@ top.json : $(YOSYS_SCRIPT) $(SOURCE)
 	yosys -s $< -o $@
 
 top.config : top.json
-	nextpnr-ecp5 --pre-pack clocks.py --25k --freq 125 --timing-allow-fail --package CABGA256 --speed 6 --json top.json --lpf top.lpf --write top-post-route.json --textcfg top.config
+	#									       CABGA381
+	#									       CABGA256
+	$(NEXTPNR) --pre-pack clocks.py --25k --freq 125 --timing-allow-fail --package CABGA381 --speed 6 --json top.json --lpf top.lpf --write top-post-route.json --textcfg top.config
 
 top.bit : top.config
-	ecppack top.config top.bit
+	$(ECPPACK) top.config top.bit
 
 top.svf : top.bit
 	./bit_to_svf.py top.bit top.svf
