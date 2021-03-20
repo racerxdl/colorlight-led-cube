@@ -25,7 +25,7 @@ OPENOCD   = $(DOCKER) $(DOCKERARGS) --device /dev/bus/usb ghdl/synth:prog openoc
 all : top.svf
 
 ../pll.v :
-	ecppll -i 25 --clkout0_name clock --clkout0 125 --clkout1_name panel_clock --clkout1 52 -f ../pll.v
+	ecppll -i 25 --clkout0_name clock --clkout0 125 --clkout1_name panel_clock --clkout1 62.5 -f ../pll.v
 
 ../liteeth_core.v : ../liteeth.yml
 	liteeth_gen --gateware-dir ../ --no-compile-software ../liteeth.yml

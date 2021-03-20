@@ -8,5 +8,5 @@ vendor:     lattice
 clk_freq:   125e6
 core:       udp
 mac_address: 0xAA040000CFCF
-ip_address:  192.168.178.50
+ip_address:  10.10.5.44
 port:        6000

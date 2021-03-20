@@ -6,12 +6,12 @@ module pll
 (
     input clkin, // 25 MHz, 0 deg
     output clock, // 125 MHz, 0 deg
-    output panel_clock, // 52.0833 MHz, 0 deg
+    output panel_clock, // 62.5 MHz, 0 deg
     output locked
 );
 (* FREQUENCY_PIN_CLKI="25" *)
 (* FREQUENCY_PIN_CLKOP="125" *)
-(* FREQUENCY_PIN_CLKOS="52.0833" *)
+(* FREQUENCY_PIN_CLKOS="62.5" *)
 (* ICP_CURRENT="12" *) (* LPF_RESISTOR="8" *) (* MFG_ENABLE_FILTEROPAMP="1" *) (* MFG_GMCREF_SEL="2" *)
 EHXPLLL #(
         .PLLRST_ENA("DISABLED"),
@@ -28,7 +28,7 @@ EHXPLLL #(
         .CLKOP_CPHASE(2),
         .CLKOP_FPHASE(0),
         .CLKOS_ENABLE("ENABLED"),
-        .CLKOS_DIV(12),
+        .CLKOS_DIV(10),
         .CLKOS_CPHASE(2),
         .CLKOS_FPHASE(0),
         .FEEDBK_PATH("CLKOP"),
