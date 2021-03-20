@@ -20,23 +20,24 @@ YOSYS     = $(DOCKER) $(DOCKERARGS) ghdl/synth:beta yosys
 NEXTPNR   = $(DOCKER) $(DOCKERARGS) ghdl/synth:nextpnr-ecp5 nextpnr-ecp5
 ECPPACK   = $(DOCKER) $(DOCKERARGS) ghdl/synth:trellis ecppack
 OPENOCD   = $(DOCKER) $(DOCKERARGS) --device /dev/bus/usb ghdl/synth:prog openocd
-
+IVERILOG  = $(DOCKER) $(DOCKERARGS) racerxdl/icarus iverilog
+VVP  			= $(DOCKER) $(DOCKERARGS) racerxdl/icarus vvp
 
 all : top.svf
 
 ../pll.v :
-	ecppll -i 25 --clkout0_name clock --clkout0 125 --clkout1_name panel_clock --clkout1 62.5 -f ../pll.v
+	ecppll -i 25 --clkout0_name clock --clkout0 150 --clkout1_name panel_clock --clkout1 40 -f ../pll.v
 
 ../liteeth_core.v : ../liteeth.yml
 	liteeth_gen --gateware-dir ../ --no-compile-software ../liteeth.yml
 
 top.json : $(YOSYS_SCRIPT) $(SOURCE)
-	yosys -s $< -o $@
+	yosys -s $< -o $@ | tee yosys.log
 
 top.config : top.json
 	#									       CABGA381
 	#									       CABGA256
-	$(NEXTPNR) --pre-pack clocks.py --25k --freq 125 --timing-allow-fail --package CABGA381 --speed 6 --json top.json --lpf top.lpf --write top-post-route.json --textcfg top.config
+	$(NEXTPNR) --pre-pack clocks.py --25k --freq 150 --timing-allow-fail --package CABGA381 --speed 6 --json top.json --lpf top.lpf --write top-post-route.json --textcfg top.config 2>&1 | tee nextpnr.log
 
 top.bit : top.config
 	$(ECPPACK) top.config top.bit
@@ -47,6 +48,9 @@ top.svf : top.bit
 flash.svf : top.bit
 	./bit_to_flash.py top.bit flash.svf
 
+vcdpanel:
+	@$(IVERILOG) -g2012 -o vcdpanel.dsn ../ledpanel.v ledpanel_tb.v
+	@$(VVP) vcdpanel.dsn
 
 prog : top.svf
 	~/opt/openocd/bin/openocd -f openocd.cfg -c "transport select jtag; init; scan_chain; svf top.svf; shutdown; quit"

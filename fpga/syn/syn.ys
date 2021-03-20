@@ -4,4 +4,5 @@ read_verilog ../ledpanel.v
 read_verilog ../pll.v
 read_verilog ../phy_io.v
 read_verilog ../top.v
-synth_ecp5 -retime
+#synth_ecp5 -retime
+synth_ecp5

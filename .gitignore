@@ -4,3 +4,6 @@ fpga/syn/top-flash.svf
 fpga/syn/top-post-route.json
 fpga/syn/top.bit
 fpga/syn/top.config
+*.dsn
+*.log
+*.vcd

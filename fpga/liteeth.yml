@@ -5,7 +5,7 @@
 phy:        LiteEthECP5PHYRGMII
 vendor:     lattice
 # Core ---------------------------------------------------------------------
-clk_freq:   125e6
+clk_freq:   150e6
 core:       udp
 mac_address: 0xAA040000CFCF
 ip_address:  10.10.5.44

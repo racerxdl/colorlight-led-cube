@@ -79,15 +79,16 @@ module ledpanel (
   // FM6126 Init Values
 
   localparam MAX_LED   = CHAINED * 64;
-  localparam FM_R1     = 16'b0111100011001110; // 2'b1111111111001110; // 16'h7FFF; 2'b0111001111111111
-  localparam FM_R2     = 16'b1111100001100010; // 2'b1110000001100010; // 16'h0040; 2'b0100011000000111
-  localparam FM_R3     = 16'b0001111100000000; // 2'b0101111100000000;              2'b0000000011111010
+  localparam FM_R1     = 16'b1111111111001110; // 2'b1111111111001110; // 16'h7FFF; 2'b0111001111111111
+  localparam FM_R2     = 16'b1110000001100010; // 2'b1110000001100010; // 16'h0040; 2'b0100011000000111
+  localparam FM_R3     = 16'b0101111100000000; // 2'b0101111100000000;              2'b0000000011111010
 
+  localparam REG_11    = MAX_LED-11;
   localparam REG_12    = MAX_LED-12;
   localparam REG_13    = MAX_LED-13;
-  localparam REG_11    = MAX_LED-11;
 
   reg [4:0] cstate = S_START;
+  reg [15:0] frames;
 
   wire WorkMode = cstate == S_WORK;
 
@@ -101,7 +102,8 @@ module ledpanel (
 
   reg [3:0] initClockDivider = 0;
 
-  wire initClock = initClockDivider[3]; // Divide by four
+  // wire initClock = initClockDivider[3]; // Divide by four
+  wire initClock = display_clock; // initClockDivider[3]; // Divide by four
 
   always @(posedge display_clock) begin
     initClockDivider <= reset ? 0 : initClockDivider + 1;
@@ -142,7 +144,7 @@ module ledpanel (
             outBit    <= init_reg[15];
             init_reg  <= {init_reg[14:0], init_reg[15]};
             initStb   <= bitCount > REG_12;
-            initClk   <= 1;
+            initClk   <= 0;
             bitCount  <= bitCount + 1;
 
             if (bitCount == MAX_LED)
@@ -152,7 +154,7 @@ module ledpanel (
           end
         S_R1C:
           begin
-            initClk   <= 0;
+            initClk   <= 1;
             cstate    <= S_R1;
           end
         S_R1E:
@@ -162,13 +164,14 @@ module ledpanel (
             initStb   <= 0;
             initClk   <= 0;
             bitCount  <= 0;
+            outBit    <= 0;
           end
         S_R2:
           begin
             outBit    <= init_reg[15];
             init_reg  <= {init_reg[14:0], init_reg[15]};
             initStb   <= bitCount > REG_13;
-            initClk   <= 1;
+            initClk   <= 0;
             bitCount  <= bitCount + 1;
 
             if (bitCount == MAX_LED)
@@ -178,7 +181,7 @@ module ledpanel (
           end
         S_R2C:
           begin
-            initClk   <= 0;
+            initClk   <= 1;
             cstate    <= S_R2;
           end
         S_R2E:
@@ -188,6 +191,7 @@ module ledpanel (
             bitCount  <= 0;
             init_reg  <= FM_R3;
             cstate    <= S_R3;
+            outBit    <= 0;
             // cstate    <= S_WORK;
           end
         S_R3:
@@ -195,7 +199,7 @@ module ledpanel (
             outBit    <= init_reg[15];
             init_reg  <= {init_reg[14:0], init_reg[15]};
             initStb   <= bitCount > REG_11;
-            initClk   <= 1;
+            initClk   <= 0;
             bitCount  <= bitCount + 1;
 
             if (bitCount == MAX_LED)
@@ -205,7 +209,7 @@ module ledpanel (
           end
         S_R3C:
           begin
-            initClk   <= 0;
+            initClk   <= 1;
             cstate    <= S_R3;
           end
         S_R3E:
@@ -213,7 +217,20 @@ module ledpanel (
             initStb   <= 0;
             initClk   <= 0;
             bitCount  <= 0;
+            outBit    <= 0;
             cstate    <= S_WORK;
+          end
+        S_WORK:
+          begin
+            if (frames == 8192)
+            begin
+              bitCount <= 0;
+              cstate   <= S_START;
+              initOe   <= 0;
+              initClk  <= 0;
+              initStb  <= 0;
+              outBit   <= 0;
+            end
           end
       endcase
     end
@@ -242,6 +259,7 @@ module ledpanel (
       cnt_x  <= 0;
       cnt_z  <= 0;
       cnt_y  <= 0;
+      frames <= 0;
     end
     else if (WorkMode) begin
       state <= !state;
@@ -256,8 +274,15 @@ module ledpanel (
         end else begin
           cnt_x <= cnt_x + 1;
         end
+
+        if (cnt_y == 0 && cnt_x == 0 && cnt_z == 0)
+        begin
+          frames <= frames + 1;
+        end
       end
     end
+    else
+      frames <= 0;
 	end
 
 	always @(posedge display_clock) begin
@@ -285,18 +310,34 @@ module ledpanel (
 
   // Set read addreses
 	always @(posedge display_clock) begin
-    if (WorkMode) begin
-  		addr_x <= cnt_x[5+SIZE_BITS:0];
-  		addr_y <= cnt_y + 32*(!state);
-  		addr_z <= cnt_z;
+    if (reset)
+    begin
+        addr_x <= 0;
+        addr_y <= 0;
+        addr_z <= 0;
+    end
+    else
+    begin
+      if (WorkMode) begin
+    		addr_x <= cnt_x[5+SIZE_BITS:0];
+    		addr_y <= cnt_y + 32*(!state);
+    		addr_z <= cnt_z;
+      end
     end
 	end
 
   // Load memory data
 	always @(posedge display_clock) begin
-    data_rgb[2] <= gamma_mem[video_mem_r[{addr_y, addr_x}]][addr_z];
-    data_rgb[1] <= gamma_mem[video_mem_g[{addr_y, addr_x}]][addr_z];
-    data_rgb[0] <= gamma_mem[video_mem_b[{addr_y, addr_x}]][addr_z];
+    if (reset)
+    begin
+      data_rgb <= 0;
+    end
+    else
+    begin
+      data_rgb[2] <= gamma_mem[video_mem_r[{addr_y, addr_x}]][addr_z];
+      data_rgb[1] <= gamma_mem[video_mem_g[{addr_y, addr_x}]][addr_z];
+      data_rgb[0] <= gamma_mem[video_mem_b[{addr_y, addr_x}]][addr_z];
+    end
 	end
 
   // Control color / address output
@@ -306,16 +347,17 @@ module ledpanel (
       {panel_g1, panel_g0} <= 0;
       {panel_b1, panel_b0} <= 0;
       {panel_e, panel_d, panel_c, panel_b, panel_a} <= 0;
+      data_rgb_q <= 0;
     end
     else
     begin
       if (!WorkMode) begin
-        panel_r0 <=outBit;
-        panel_r1 <=outBit;
-        panel_g0 <=outBit;
-        panel_g1 <=outBit;
-        panel_b0 <=outBit;
-        panel_b1 <=outBit;
+        panel_r0 <= outBit;
+        panel_r1 <= outBit;
+        panel_g0 <= outBit;
+        panel_g1 <= outBit;
+        panel_b0 <= outBit;
+        panel_b1 <= outBit;
       end
       else begin
         data_rgb_q <= data_rgb;
